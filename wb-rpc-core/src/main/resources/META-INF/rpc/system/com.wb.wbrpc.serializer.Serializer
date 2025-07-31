@@ -1,0 +1,4 @@
+jdk=com.wb.wbrpc.serializer.JdkSerializer
+hessian=com.wb.wbrpc.serializer.HessianSerializer
+json=com.wb.wbrpc.serializer.JsonSerializer
+kryo=com.wb.wbrpc.serializer.KryoSerializer

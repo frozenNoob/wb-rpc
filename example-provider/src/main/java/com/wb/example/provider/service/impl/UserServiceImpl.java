@@ -13,7 +13,7 @@ public class UserServiceImpl implements UserService {
         return user;
     }
 
-    public short getNumber(){
+    public int getNumber(){
         return 55;
     }
 }

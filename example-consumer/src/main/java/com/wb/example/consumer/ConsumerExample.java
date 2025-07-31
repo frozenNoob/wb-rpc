@@ -21,8 +21,8 @@ public class ConsumerExample {
         } else {
             System.out.println("user == null");
         }
-        // 注意这是default方法，和mock不同
-        long number = userService.getNumber();
+        // 注意这里因为本质是调用代理对象的方法而非default方法！
+        int number = userService.getNumber();
         System.out.println(number);
     }
 }

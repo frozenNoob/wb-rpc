@@ -2,13 +2,15 @@
 ## 1. 一个简易版RPC框架开发
 > 1. [手写 RPC 框架项目教程 - 编程导航教程](https://www.codefather.cn/course/1768543954720022530/section/1768545847093518337?contentType=text&tabKey=list&type=#)
 > 2. [手写 RPC 框架 - 个人笔记+梳理+总结+扩展点实现（作者：Jools_Wakoo）](https://www.codefather.cn/post/1886747157767315457#heading-126)
-### 1.1. 基本设计
+### 1.1 基本设计
+
 ![手写RPC框架流程图](docs/images/手写RPC框架图.drawio.png)
 
-### 1.2. 扩展设计
+### 1.2 扩展设计
+
 ![扩展](docs/images/扩展简易版RPC框架设计图.png)
 
-### 1.3. RPC框架与Feign的区别和联系
+### 1.3 RPC框架与Feign的区别和联系
 
 > 1. [Spring Cloud OpenFeign](https://docs.spring.io/spring-cloud-openfeign/docs/current/reference/html/#spring-cloud-feign)
 > 2. [为什么 Feign 要用 HTTP 而不是 RPC？](https://blog.csdn.net/jam_yin/article/details/142371004)
@@ -41,7 +43,7 @@ Feign和PRC框架都高度依赖**代理模式**，
 
 
 
-### 1.4. 其他设计
+### 1.4  其他设计
 
 除了上面几个经典设计外，如果想要做一个优秀的 RPC 框架，还要考虑很多问题。
 比如：
@@ -50,11 +52,13 @@ Feign和PRC框架都高度依赖**代理模式**，
 - 服务消费者每次都从注册中心拉取信息，性能会不会很差？可以使用缓存来优化性能。
 - 如何优化 RPC 框架的传输通讯性能？比如选择合适的网络框架、自定义协议头、节约传输体积等。
 - 如何让整个框架更利于扩展？比如使用 Java 的 SPI 机制、配置化等等。
-  在这个项目中，都会把这些问题解决。但是实际上做个完美的RPC项目需要解决的问题还有更多，这里不做讨论。
+  
+
+在这个项目中，都会把这些问题解决。但是实际上做个完美的RPC项目需要解决的问题还有更多，这里不做讨论。
 
 ## 2. 全局配置加载
 
-### 2.1. 基本设计
+### 2.1 基本设计
 
 通过双检索单例模式支持`application.properties`文件中的属性懒加载，支持以下属性：
 
@@ -71,7 +75,7 @@ rpc.version=3.0
 rpc.serverPort=8082
 ```
 
-### 2.2. 扩展设计
+### 2.2 扩展设计
 
 ## 3. 接口Mock
 
@@ -80,4 +84,18 @@ rpc.serverPort=8082
 目前能让所有的接口得到对应的Mock，只是这些采取的是简单默认值，比如`int`的默认值是0，所有对象的默认值为null。
 
 ### 3.2 扩展设计
+
+## 4. 序列化器与SPI机制
+
+### 4.1 基本设计
+
+能够通过简单的配置直接选用序列化器：修改消费者和生产者示例项目中的配置文件（注意此时生产者使用的是`rpc-core`的配置文件)，指定**相同的**序列化器，比如 `hessian`：
+
+```Properties
+rpc.serializer=hessian
+```
+
+然后依次启动生产者和消费者，发现能够正常完成RPC请求和响应。
+
+### 4.2 扩展设计
 

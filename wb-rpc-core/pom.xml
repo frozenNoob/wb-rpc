@@ -52,6 +52,28 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- JSON序列化与反序列化，具体来说用到了ObjectMapper  -->
+    <!-- http://www.json.org/json-zh.html   -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.13.4</version>
+    </dependency>
+    <!-- hessian 序列化 -->
+    <!-- https://mvnrepository.com/artifact/com.caucho/hessian -->
+    <dependency>
+      <groupId>com.caucho</groupId>
+      <artifactId>hessian</artifactId>
+      <version>4.0.66</version>
+    </dependency>
+    <!-- kryo 序列化 -->
+    <!-- https://mvnrepository.com/artifact/com.esotericsoftware/kryo -->
+    <dependency>
+      <groupId>com.esotericsoftware</groupId>
+      <artifactId>kryo</artifactId>
+      <version>5.6.0</version>
+    </dependency>
+
   </dependencies>
 
 </project>
