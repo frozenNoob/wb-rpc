@@ -12,4 +12,8 @@ public class UserServiceImpl implements UserService {
         System.out.println("用户名：" + user.getName());
         return user;
     }
+
+    public short getNumber(){
+        return 55;
+    }
 }
