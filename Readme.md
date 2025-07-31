@@ -51,3 +51,25 @@ Feign和PRC框架都高度依赖**代理模式**，
 - 如何优化 RPC 框架的传输通讯性能？比如选择合适的网络框架、自定义协议头、节约传输体积等。
 - 如何让整个框架更利于扩展？比如使用 Java 的 SPI 机制、配置化等等。
   在这个项目中，都会把这些问题解决。但是实际上做个完美的RPC项目需要解决的问题还有更多，这里不做讨论。
+
+## 2. 全局配置加载
+
+### 2.1. 基本设计
+
+通过双检索单例模式支持`application.properties`文件中的属性懒加载，支持以下属性：
+
+- name 名称
+- version 版本号
+- serverHost 服务器主机名
+- serverPort 服务器端口号
+
+通过在`application.properties`文件中导入属性：
+
+```properties
+rpc.name=wbrpc
+rpc.version=3.0
+rpc.serverPort=8082
+```
+
+### 2.2. 扩展设计
+
