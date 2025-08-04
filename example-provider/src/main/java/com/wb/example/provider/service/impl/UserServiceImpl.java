@@ -1,7 +1,7 @@
 package com.wb.example.provider.service.impl;
 
 import com.wb.example.common.model.User;
-import com.wb.example.common.service.UserService;
+import com.wb.example.provider.service.UserService;
 
 /**
  * 用户服务实现类

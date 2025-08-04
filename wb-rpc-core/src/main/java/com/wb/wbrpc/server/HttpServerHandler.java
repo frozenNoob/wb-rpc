@@ -1,6 +1,7 @@
 package com.wb.wbrpc.server;
 
 
+import com.wb.example.common.service.UserService;
 import com.wb.wbrpc.RpcApplication;
 import com.wb.wbrpc.model.RpcRequest;
 import com.wb.wbrpc.model.RpcResponse;

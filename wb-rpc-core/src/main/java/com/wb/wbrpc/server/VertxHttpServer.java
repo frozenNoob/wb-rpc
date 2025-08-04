@@ -4,6 +4,7 @@ import io.vertx.core.Vertx;
 
 public class VertxHttpServer implements HttpServer {
 
+    @Override
     public void doStart(int port) {
         // 创建 Vert.x 实例
         Vertx vertx = Vertx.vertx();

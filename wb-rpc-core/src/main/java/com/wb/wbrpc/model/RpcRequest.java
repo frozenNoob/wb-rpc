@@ -1,5 +1,6 @@
 package com.wb.wbrpc.model;
 
+import com.wb.wbrpc.constant.RpcConstant;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,6 +26,11 @@ public class RpcRequest implements Serializable {
      * 方法名称
      */
     private String methodName;
+
+    /**
+     * 服务版本
+     */
+    private String serverVersion = RpcConstant.DEFAULT_SERVICE_VERSION;
 
     /**
      * 参数类型列表
