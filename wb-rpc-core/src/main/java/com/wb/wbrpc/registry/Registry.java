@@ -43,4 +43,18 @@ public interface Registry {
      * 服务销毁
      */
     void destroy();
+
+    /**
+     * 心跳检测（服务端）
+     */
+    void heartBeat();
+
+    /**
+     * 监听（消费端）
+     *
+     * @param registerKey 等于 ETCD_ROOT_PATH + serviceNodeKey
+     * @param serviceKey
+     */
+    void watch(String registerKey, String serviceKey);
+
 }

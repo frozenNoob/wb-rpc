@@ -1,1 +1,2 @@
 etcd=com.wb.wbrpc.registry.EtcdRegistry
+zookeeper=com.wb.wbrpc.registry.ZooKeeperRegistry

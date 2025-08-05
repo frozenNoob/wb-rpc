@@ -9,13 +9,18 @@ import com.wb.wbrpc.proxy.ServiceProxyFactory;
  */
 public class ConsumerExample {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         // 获取代理
         UserService userService = ServiceProxyFactory.getProxy(UserService.class);
         User user = new User();
         user.setName("wb");
-        // 调用
+        // 调用3次
         User newUser = userService.getUser(user);
+        newUser = userService.getUser(user);
+        System.out.println("开始测试缓存是否清空");
+        Thread.sleep(10*1000);
+        newUser = userService.getUser(user);
+
         if (newUser != null) {
             System.out.println(newUser.getName());
         } else {
