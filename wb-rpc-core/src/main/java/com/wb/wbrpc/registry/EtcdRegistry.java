@@ -11,6 +11,7 @@ import io.etcd.jetcd.*;
 import io.etcd.jetcd.options.GetOption;
 import io.etcd.jetcd.options.PutOption;
 import io.etcd.jetcd.watch.WatchEvent;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class EtcdRegistry implements Registry {
 
     private Client client;
@@ -118,7 +120,7 @@ public class EtcdRegistry implements Registry {
                     .collect(Collectors.toList());
 
             // 写入服务缓存
-            System.out.println("本地缓存已清空，所以写入新的缓存");
+            log.info("本地缓存已清空，所以写入新的缓存");
             registryServiceMultiCache.writeCache(serviceKey, serviceMetaInfoList);
             return serviceMetaInfoList;
         } catch (Exception e) {

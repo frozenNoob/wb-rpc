@@ -11,6 +11,7 @@ import com.wb.wbrpc.registry.Registry;
 import com.wb.wbrpc.registry.RegistryFactory;
 import com.wb.wbrpc.server.HttpServer;
 import com.wb.wbrpc.server.VertxHttpServer;
+import com.wb.wbrpc.server.tcp.VertxTcpServer;
 
 /**
  * 服务提供者示例
@@ -43,7 +44,7 @@ public class ProviderExample {
         // 注册服务到本地的注册中心
         LocalRegistry.register(serviceName, UserServiceImpl.class);
         // 启动 web 服务
-        HttpServer httpServer = new VertxHttpServer();
+        HttpServer httpServer = new VertxTcpServer();
         httpServer.doStart(RpcApplication.getRpcConfig().getServerPort());
 
     }

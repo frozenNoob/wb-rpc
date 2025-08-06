@@ -17,9 +17,9 @@ public class ConsumerExample {
         // 调用3次
         User newUser = userService.getUser(user);
         newUser = userService.getUser(user);
-        System.out.println("开始测试缓存是否清空");
-        Thread.sleep(10*1000);
-        newUser = userService.getUser(user);
+        //System.out.println("开始测试缓存是否清空");
+        //Thread.sleep(10*1000);
+        //newUser = userService.getUser(user);
 
         if (newUser != null) {
             System.out.println(newUser.getName());
