@@ -8,6 +8,9 @@ import cn.hutool.http.HttpResponse;
 import com.wb.wbrpc.RpcApplication;
 import com.wb.wbrpc.config.RpcConfig;
 import com.wb.wbrpc.constant.RpcConstant;
+import com.wb.wbrpc.loadbalancer.LoadBalancer;
+import com.wb.wbrpc.loadbalancer.LoadBalancerFactory;
+import com.wb.wbrpc.loadbalancer.LoadBalancerKeys;
 import com.wb.wbrpc.model.RpcRequest;
 import com.wb.wbrpc.model.RpcResponse;
 import com.wb.wbrpc.model.ServiceMetaInfo;
@@ -28,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -65,8 +69,14 @@ public class ServiceProxy implements InvocationHandler {
             if (CollUtil.isEmpty(serviceMetaInfoList)) {
                 throw new RuntimeException("暂无服务地址");
             }
-            // 暂时先取第一个
-            ServiceMetaInfo selectedServiceMetaInfo = serviceMetaInfoList.get(0);
+
+            // 负载均衡
+            LoadBalancer loadBalancer = LoadBalancerFactory.getInstance(rpcConfig.getLoadBalancer());
+            // 将调用方法名（请求路径）作为负载均衡参数
+            HashMap<String, Object> requestParams = new HashMap<>();
+            requestParams.put("methodName", rpcRequest.getMethodName());
+            ServiceMetaInfo selectedServiceMetaInfo = loadBalancer.select(requestParams, serviceMetaInfoList);
+
             // 发送 TCP 请求 和 得到响应
             RpcResponse rpcResponse = VertxTcpClient.doRequest(rpcRequest, selectedServiceMetaInfo);
             return rpcResponse.getData();

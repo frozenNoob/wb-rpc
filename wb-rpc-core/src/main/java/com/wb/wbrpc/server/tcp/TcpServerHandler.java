@@ -59,7 +59,7 @@ public class TcpServerHandler implements Handler<NetSocket> {
                 throw new RuntimeException("协议消息编码错误");
             }
         });
-        // 正式处理
+        // 记录该处理器，等待执行
         socket.handler(tcpBufferHandlerWrapper);
     }
 }

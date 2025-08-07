@@ -90,6 +90,7 @@ public class VertxTcpClient {
                                 throw new RuntimeException("协议消息解码错误");
                             }
                         });
+                        // 记录该处理器，等待执行
                         socket.handler(bufferHandlerWrapper);
                     } else {
                         log.error("Failed to connect to TCP server");

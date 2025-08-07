@@ -7,6 +7,14 @@ import io.vertx.core.parsetools.RecordParser;
 
 /**
  * 装饰者模式（使用 recordParser 对原有的 buffer 处理能力进行增强）
+ * 该模式的必要条件：1. 通过构造函数获得一个属于具体组件的成员实例。 2. 在具体装饰器中重写该实例需要被装饰的方法，即在原方法执行前后加上一些其他行为
+ * 但是这个案例比较特殊，是通过设置具体组件的一些成员（size和eventHandler），从而把“在原方法执行前后加上一些其他行为”这些代码转移给这些成员执行。
+ * <br><br>
+ * 也就是实际执行的方法handle的流程如下：
+ *      具体装饰器TcpBufferHandlerWrapper执行handle=>具体组件RecordParserImpl执行handle
+ *          =>执行通过构造函数中的方法initRecordParser获取具体组件时，方法setOutput记录的匿名类中重写的方法handle
+ *          =>而这个方法中，装饰了initRecordParser的形参传进来的方法（在该方法执行前后加了一些新的行为）
+ *      结果是达到了装饰者模式的效果。
  */
 public class TcpBufferHandlerWrapper implements Handler<Buffer> {
 
