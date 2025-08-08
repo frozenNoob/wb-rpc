@@ -1,0 +1,4 @@
+failBack=com.wb.wbrpc.fault.tolerant.FailBackTolerantStrategy
+failFast=com.wb.wbrpc.fault.tolerant.FailFastTolerantStrategy
+failOver=com.wb.wbrpc.fault.tolerant.FailOverTolerantStrategy
+failSafe=com.wb.wbrpc.fault.tolerant.FailSafeTolerantStrategy

@@ -10,6 +10,9 @@ import com.wb.wbrpc.config.RpcConfig;
 import com.wb.wbrpc.constant.RpcConstant;
 import com.wb.wbrpc.fault.retry.RetryStrategy;
 import com.wb.wbrpc.fault.retry.RetryStrategyFactory;
+import com.wb.wbrpc.fault.tolerant.TolerantStrategy;
+import com.wb.wbrpc.fault.tolerant.TolerantStrategyFactory;
+import com.wb.wbrpc.fault.tolerant.TolerantStrategyKeys;
 import com.wb.wbrpc.loadbalancer.LoadBalancer;
 import com.wb.wbrpc.loadbalancer.LoadBalancerFactory;
 import com.wb.wbrpc.loadbalancer.LoadBalancerForHash;
@@ -61,41 +64,46 @@ public class ServiceProxy implements InvocationHandler {
                 .parameterTypes(method.getParameterTypes())
                 .args(args)
                 .build();
+
+        // 从注册中心获取服务提供者请求地址
+        RpcConfig rpcConfig = RpcApplication.getRpcConfig();
+        Registry registry = RegistryFactory.getInstance(rpcConfig.getRegistryConfig().getRegistry());
+        ServiceMetaInfo serviceMetaInfo = new ServiceMetaInfo();
+        serviceMetaInfo.setServiceName(serviceName);
+        serviceMetaInfo.setServiceVersion(RpcConstant.DEFAULT_SERVICE_VERSION);
+        List<ServiceMetaInfo> serviceMetaInfoList = registry.serviceDiscovery(serviceMetaInfo.getServiceKey());
+        if (CollUtil.isEmpty(serviceMetaInfoList)) {
+            throw new RuntimeException("暂无服务地址");
+        }
+
+        // 负载均衡
+        LoadBalancer loadBalancer = LoadBalancerFactory.getInstance(rpcConfig.getLoadBalancer());
+        // 将调用方法名（请求路径）作为负载均衡参数
+        HashMap<String, Object> requestParams = new HashMap<>();
+        requestParams.put("methodName", rpcRequest.getMethodName());
+        // 如果算法是一致性哈希的话，需要额外建立哈希环
+        if (loadBalancer instanceof LoadBalancerForHash) {
+            ((LoadBalancerForHash) loadBalancer).setIfChanged(requestParams, serviceMetaInfoList);
+        }
+        // 选取节点
+        ServiceMetaInfo selectedServiceMetaInfo = loadBalancer.select(requestParams, serviceMetaInfoList);
+
+        RpcResponse rpcResponse;
         try {
-            // 从注册中心获取服务提供者请求地址
-            RpcConfig rpcConfig = RpcApplication.getRpcConfig();
-            Registry registry = RegistryFactory.getInstance(rpcConfig.getRegistryConfig().getRegistry());
-            ServiceMetaInfo serviceMetaInfo = new ServiceMetaInfo();
-            serviceMetaInfo.setServiceName(serviceName);
-            serviceMetaInfo.setServiceVersion(RpcConstant.DEFAULT_SERVICE_VERSION);
-            List<ServiceMetaInfo> serviceMetaInfoList = registry.serviceDiscovery(serviceMetaInfo.getServiceKey());
-            if (CollUtil.isEmpty(serviceMetaInfoList)) {
-                throw new RuntimeException("暂无服务地址");
-            }
-
-            // 负载均衡
-            LoadBalancer loadBalancer = LoadBalancerFactory.getInstance(rpcConfig.getLoadBalancer());
-            // 将调用方法名（请求路径）作为负载均衡参数
-            HashMap<String, Object> requestParams = new HashMap<>();
-            requestParams.put("methodName", rpcRequest.getMethodName());
-            // 如果算法是一致性哈希的话，需要额外建立哈希环
-            if(loadBalancer instanceof LoadBalancerForHash){
-                ((LoadBalancerForHash)loadBalancer).setIfChanged(requestParams, serviceMetaInfoList);
-            }
-            // 选取节点
-            ServiceMetaInfo selectedServiceMetaInfo = loadBalancer.select(requestParams, serviceMetaInfoList);
-
             // 使用重试机制发送TCP请求和得到响应
             RetryStrategy retryStrategy = RetryStrategyFactory.getInstance(rpcConfig.getRetryStrategy());
-            RpcResponse rpcResponse = retryStrategy.doRetry(() ->
+            rpcResponse = retryStrategy.doRetry(() ->
                     VertxTcpClient.doRequest(rpcRequest, selectedServiceMetaInfo)
             );
 
-            return rpcResponse.getData();
         } catch (Exception e) {
             log.error("\n调用代理时出现错误");
-            throw new RuntimeException(e.getMessage() + "\n调用代理时出现错误");
+            // 容错机制
+            TolerantStrategy tolerantStrategy = TolerantStrategyFactory.getInstance(RpcApplication.getRpcConfig().getTolerantStrategy());
+            rpcResponse = tolerantStrategy.doTolerant(null, e);
         }
+
+        return rpcResponse.getData();
     }
 }
 
