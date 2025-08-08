@@ -1,0 +1,2 @@
+no=com.wb.wbrpc.fault.retry.NoRetryStrategy
+fixedInterval=com.wb.wbrpc.fault.retry.FixedIntervalRetryStrategy

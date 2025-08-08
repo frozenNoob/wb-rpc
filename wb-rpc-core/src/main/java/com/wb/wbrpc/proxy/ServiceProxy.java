@@ -8,6 +8,8 @@ import cn.hutool.http.HttpResponse;
 import com.wb.wbrpc.RpcApplication;
 import com.wb.wbrpc.config.RpcConfig;
 import com.wb.wbrpc.constant.RpcConstant;
+import com.wb.wbrpc.fault.retry.RetryStrategy;
+import com.wb.wbrpc.fault.retry.RetryStrategyFactory;
 import com.wb.wbrpc.loadbalancer.LoadBalancer;
 import com.wb.wbrpc.loadbalancer.LoadBalancerFactory;
 import com.wb.wbrpc.loadbalancer.LoadBalancerForHash;
@@ -83,8 +85,12 @@ public class ServiceProxy implements InvocationHandler {
             // 选取节点
             ServiceMetaInfo selectedServiceMetaInfo = loadBalancer.select(requestParams, serviceMetaInfoList);
 
-            // 发送 TCP 请求 和 得到响应
-            RpcResponse rpcResponse = VertxTcpClient.doRequest(rpcRequest, selectedServiceMetaInfo);
+            // 使用重试机制发送TCP请求和得到响应
+            RetryStrategy retryStrategy = RetryStrategyFactory.getInstance(rpcConfig.getRetryStrategy());
+            RpcResponse rpcResponse = retryStrategy.doRetry(() ->
+                    VertxTcpClient.doRequest(rpcRequest, selectedServiceMetaInfo)
+            );
+
             return rpcResponse.getData();
         } catch (Exception e) {
             log.error("\n调用代理时出现错误");

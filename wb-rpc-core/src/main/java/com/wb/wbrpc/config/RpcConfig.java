@@ -1,5 +1,6 @@
 package com.wb.wbrpc.config;
 
+import com.wb.wbrpc.fault.retry.RetryStrategyKeys;
 import com.wb.wbrpc.loadbalancer.LoadBalancerKeys;
 import com.wb.wbrpc.serializer.SerializerKeys;
 import lombok.Data;
@@ -43,10 +44,15 @@ public class RpcConfig {
     /**
      * 注册中心配置
      */
-    private RegistryConfig registryConfig = new RegistryConfig();
+    private RegistryConfig registryConfig;
 
     /**
      * 负载均衡器
      */
     private String loadBalancer = LoadBalancerKeys.ROUND_ROBIN;
+
+    /**
+     * 重试策略
+     */
+    private String retryStrategy = RetryStrategyKeys.NO;
 }

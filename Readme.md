@@ -232,3 +232,19 @@ if (hasServiceListChanged(serviceMetaInfoList)) {
 如果要**完全解决这个问题**的话，可以不采用单例模式加载类`ConsistentHashLoadBalancer`
 或者`setIfChanged`方法返回一个完整的深拷贝的哈希环并将其作为形参传入`select`方法中,但是这样消耗的内存会很多，
 所以综合考量下，使用现在这种方法是最好的。
+
+
+
+## 9. 重试机制
+
+### 9.1. 基本设计
+
+基于Gu⁠ava-Retrying 库实现重试时间算法（重试策略）如下：
+
+1. 不重试。
+2. 固定重试间隔（Fixed Retry In⁠terval）。
+
+
+
+### 9.2. 扩展设计
+

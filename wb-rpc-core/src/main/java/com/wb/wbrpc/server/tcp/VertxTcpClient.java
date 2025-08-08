@@ -54,7 +54,11 @@ public class VertxTcpClient {
         //  Vert.x 提供的请求处理器是异步的
         netClient.connect(serviceMetaInfo.getServicePort(), serviceMetaInfo.getServiceHost(),
                 result -> {
-                    if (result.succeeded()) {
+                    if (!result.succeeded()) {
+                        log.error("Failed to connect to TCP server");
+                        // 线程1执行该方法后，调用responseFuture.get()的线程2则会抛出一个错误！
+                        responseFuture.completeExceptionally(new RuntimeException("Failed to connect to TCP server"));
+                    } else {
                         log.info("Connected to TCP server");
                         NetSocket socket = result.result();
                         // 发送数据
@@ -92,8 +96,6 @@ public class VertxTcpClient {
                         });
                         // 记录该处理器，等待执行
                         socket.handler(bufferHandlerWrapper);
-                    } else {
-                        log.error("Failed to connect to TCP server");
                     }
                 });
 
