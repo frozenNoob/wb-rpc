@@ -8,11 +8,11 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * （几乎）线程安全的一致性哈希负载均衡器
- * 基于公平读写锁+双重检测锁 实现`addIfAbsentAndGet`操作（近似于原子操作）来保证一致性哈希算法的线程安全
+ * 线程安全的一致性哈希负载均衡器。
+ * 基于公平读写锁+双重检测锁 实现`setIfChanged`原子操作和`Get`原子操作来保证一致性哈希算法的线程安全
  */
 @Slf4j
-public class ConsistentHashLoadBalancer implements LoadBalancer {
+public class ConsistentHashLoadBalancer implements LoadBalancerForHash {
 
     /**
      * 一致性 Hash 环，存放虚拟节点
@@ -20,7 +20,7 @@ public class ConsistentHashLoadBalancer implements LoadBalancer {
     private final TreeMap<Integer, ServiceMetaInfo> virtualNodes = new TreeMap<>();
 
     /**
-     * 公平的读写锁保证线程安全
+     * 公平的读写锁以在一定程度上保证线程安全
      */
     private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
 
@@ -35,10 +35,15 @@ public class ConsistentHashLoadBalancer implements LoadBalancer {
      */
     private static final int VIRTUAL_NODE_NUM = 100;
 
-    @Override
-    public ServiceMetaInfo select(Map<String, Object> requestParams, List<ServiceMetaInfo> serviceMetaInfoList) {
+    /**
+     * setIfChanged原子操作，当服务节点列表发生改变时，需要重新建立哈希环
+     * @param requestParams  请求参数
+     * @param serviceMetaInfoList 可用服务列表
+     * @return
+     */
+    public void setIfChanged(Map<String, Object> requestParams, List<ServiceMetaInfo> serviceMetaInfoList){
         if (serviceMetaInfoList.isEmpty()) {
-            return null;
+            return ;
         }
 
         // 检查服务列表是否变化
@@ -55,7 +60,15 @@ public class ConsistentHashLoadBalancer implements LoadBalancer {
                 lock.writeLock().unlock();
             }
         }
-
+    }
+    /**
+     * get 原子操作，为了获取哈希环上的对应节点
+     * @param requestParams       请求参数
+     * @param serviceMetaInfoList 可用服务列表
+     * @return
+     */
+    @Override
+    public ServiceMetaInfo select(Map<String, Object> requestParams, List<ServiceMetaInfo> serviceMetaInfoList) {
         // 获取读锁执行查询
         lock.readLock().lock();
         // 检查服务列表是否变化，变化则记录warn，因为后续有兜底或重试机制，所以其实这里不用太严格
@@ -89,7 +102,7 @@ public class ConsistentHashLoadBalancer implements LoadBalancer {
     }
 
     /**
-     * 检查服务列表是否发生变化，最坏时间复杂度为O(n)，其中n为列表长度
+     * 检查服务列表是否发生变化，最坏时间复杂度为O(n+m)，空间复杂度为O(n+m)。其中n和m分别为这两个列表的长度
      */
     private boolean hasServiceListChanged(List<ServiceMetaInfo> newList) {
         if (lastServiceMetaInfoList.size() != newList.size()) {

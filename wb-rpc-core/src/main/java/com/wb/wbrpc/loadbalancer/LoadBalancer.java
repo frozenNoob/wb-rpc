@@ -18,4 +18,5 @@ public interface LoadBalancer {
      * @return
      */
     ServiceMetaInfo select(Map<String, Object> requestParams, List<ServiceMetaInfo> serviceMetaInfoList);
+
 }

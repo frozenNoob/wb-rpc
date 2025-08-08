@@ -10,6 +10,7 @@ import com.wb.wbrpc.config.RpcConfig;
 import com.wb.wbrpc.constant.RpcConstant;
 import com.wb.wbrpc.loadbalancer.LoadBalancer;
 import com.wb.wbrpc.loadbalancer.LoadBalancerFactory;
+import com.wb.wbrpc.loadbalancer.LoadBalancerForHash;
 import com.wb.wbrpc.loadbalancer.LoadBalancerKeys;
 import com.wb.wbrpc.model.RpcRequest;
 import com.wb.wbrpc.model.RpcResponse;
@@ -75,6 +76,11 @@ public class ServiceProxy implements InvocationHandler {
             // 将调用方法名（请求路径）作为负载均衡参数
             HashMap<String, Object> requestParams = new HashMap<>();
             requestParams.put("methodName", rpcRequest.getMethodName());
+            // 如果算法是一致性哈希的话，需要额外建立哈希环
+            if(loadBalancer instanceof LoadBalancerForHash){
+                ((LoadBalancerForHash)loadBalancer).setIfChanged(requestParams, serviceMetaInfoList);
+            }
+            // 选取节点
             ServiceMetaInfo selectedServiceMetaInfo = loadBalancer.select(requestParams, serviceMetaInfoList);
 
             // 发送 TCP 请求 和 得到响应
