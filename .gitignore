@@ -10,9 +10,6 @@
 *.log
 **/logs/
 
-
-
-
 # BlueJ files
 *.ctxt
 

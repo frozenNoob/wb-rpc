@@ -265,3 +265,23 @@ if (hasServiceListChanged(serviceMetaInfoList)) {
 
 ### 10.2 扩展设计
 
+
+
+## 11. 启动机制和注解驱动
+
+### 11.1 基本设计
+
+#### 启动机制
+
+将服务提供者和消费者的所有启动代码都分别封装为一个专门启动的类，然后由服务提供者/消费者调用即可。但是这种方法也还是**不够方便**，且服务提供者无法动态地获取需要注册的实现类的信息。
+
+#### 注解驱动
+
+通过另一种**更为方便**的设计，即通过spring boot stater注解驱动的方式。具体来说，是新增一个模块并在这个模块中编写3种注解：
+
+1. `@EnableRpc`：用于全局标识项目需要⁠引入 RPC 框架⁠、执行启动类方法。原理是使用了`@Import`导入其他3种启动类，第一种启动类`RpcInitBootstrap`能够**在所有Bean实例化前**执行以初始化 RPC 框架，而其余两种启动类（`RpcProviderBootstrap`和`RpcConsumerBootstrap `）能够在IOC容器的**每个Bean都初始化后**，执行对应的两种启动类方法（都是实现`BeanPostProcessor`接口的`postProcessAfterInitialization`方法），即**扫描是否被特定注解修饰，是的话才执行后续的操作**。
+2. `@RpcService`：服务提供者注解，在⁠需要注册和提供的服务类⁠上使用。原理是将Bean对象注册到IOC容器中，类似与Spring中的注解`@Service`。
+3. `@RpcReference`：服务消费者注解，在需要注入服⁠务代理对象的属性上使用。原理是将IOC容器中的Bean对象注入到类成员中，类似 Spring 定义的 注解`@Autowired`或 Java 定义的注解`@Resource` 。
+
+### 11.2 扩展设计
+

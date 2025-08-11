@@ -1,13 +1,5 @@
 <configuration>
 
-    <!-- 控制根日志级别为 INFO：默认所有 logger 都是 INFO 及以上才输出 -->
-    <root level="INFO">
-        <appender-ref ref="STDOUT"/>
-    </root>
-
-    <!-- 单独控制 Netty 包下的日志级别为 INFO（否则它默认是 DEBUG） -->
-    <logger name="io.netty" level="INFO" />
-
     <!-- 定义一个控制台输出的 appender，名字叫 STDOUT -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -15,5 +7,13 @@
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
+
+    <!-- 控制根日志级别为 INFO：默认所有 logger 都是 INFO 及以上才输出 -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <!-- 单独控制 Netty 包下的日志级别为 INFO（否则它默认是 DEBUG） -->
+    <logger name="io.netty" level="INFO" />
 
 </configuration>
