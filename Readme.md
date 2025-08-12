@@ -207,7 +207,7 @@ rpc.serializer=hessian
 ##### 开发实现
 
 参考本次Fix提交中的`ConsistentHashLoadBalancer.java`文件。
-通过定义并实现扩展接口`LoadBalancerForHash`的方式在不破坏其他实现类的情况下进行功能的扩展。
+通过定义并实现扩展接口`LoadBalancerForHash`的方式在不破坏其他实现类的情况下进行功能的扩展，这样才做符合单一职责原则。
 
 ##### 测试
 测试时又仔细看了下逻辑，发现`ConsistentHashLoadBalancer`类是线程安全的，
@@ -284,4 +284,361 @@ if (hasServiceListChanged(serviceMetaInfoList)) {
 3. `@RpcReference`：服务消费者注解，在需要注入服⁠务代理对象的属性上使用。原理是将IOC容器中的Bean对象注入到类成员中，类似 Spring 定义的 注解`@Autowired`或 Java 定义的注解`@Resource` 。
 
 ### 11.2 扩展设计
+
+#### 1）在不破坏开闭原则的前提下，模仿Feign的方式实现远程调用，从而让服务提供者无需移动原有的接口类就能够暴露功能给消费者，这在重构项目架构为微服务架构后限制接口访问权限上尤其有用：
+
+
+
+##### 需求分析
+
+如果按照传统的RPC框架方式（比如Dubbo RPC），在重构项目架构为微服务架构时，需要把已有的接口和POJO移到另一个公共接口模块。但是这样做的话，服务提供者一般需要暴露一些其他消费者无需使用而只有提供者才使用的接口。综上会导致3个问题：
+
+1. 移动时需要在接口文件中更改import的接口的包名（如果包名不同）不太方便（虽然IDEA提供了自动改包名的这个功能）。
+2. 破坏了接口访问权限。
+3. 打可执行Jar包时会存在一些用不到的接口，进而导致Jar包变得更大而浪费存储空间。
+
+而我需要解决这些问题。
+
+##### 设计方案
+
+###### 思路
+
+Feign框架的使用方式主要为在使用注解`@FeignClient`时提供了相关的接口信息，如下图：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=OWI3ZDJkNmFiMTc4MGFmMTZkYWI2ODRiZGNkMGM0MGRfWlJLVTc1ejJjRXdDcUhwV21RZUUxdGdLZVFXVnliWHRfVG9rZW46QW1DbmJrOUNxb3VwR2l4cnJPZWNEY2xVbm9mXzE3NTQ5OTc4MTI6MTc1NTAwMTQxMl9WNA)
+
+可以模仿Feign框架的方式实现远程调用，从而让服务提供者无需移动原有的接口类就能够暴露功能给消费者。
+
+在我这个项目中，服务提供者的本地注册中心所需要的键值对为：<接口名，接口实现类的Class对象>。现在的情况是value已经存在了，但是key确实直接取实现类对应的第一个接口，这是需要更改的地方。所以我增加了寻找key的过程，即从公共模块对应的接口上寻找到对应的key，而这个key将由我自定义的注解提供，所以最终需要决定的是写一个**能够扫描该注解并获取相关值的方法**。
+
+###### **技术选型**
+
+####### 对比
+
+暂时无法在飞书文档外展示此内容
+
+扫描该注解并获取相关值则可以用下面的几种方法：
+
+1. **使用Spring容器提供的类路径扫描工具**，该工具可以很方便地扫描指定包下带有某注解的类。
+2. 使用第三方库（如Reflections）。
+3. 手写自定义扫描器（复杂且不推荐）。预测需要逐目录检索后缀，然后用调用方法`Class.forName`获取Class对象后再调用方法`getAnnotation`获取注解信息。
+
+**2种方法大致对比如下：**
+
+| 特性                   | Reflections                                      | Spring ClassPathScanningCandidateComponentProvider |
+| ---------------------- | ------------------------------------------------ | -------------------------------------------------- |
+| 是否能扫描接口上的注解 | 是                                               | 否（只扫描具体类）                                 |
+| 扫描范围               | 类、接口、枚举等所有类型                         | 仅可实例化的类（Bean 候选者）                      |
+| 性能                   | 可能较慢（视包大小而定）                         | 较快（优化为 Spring Bean 扫描）                    |
+| 配置复杂性             | 简单，灵活                                       | 依赖 Spring 上下文，配置稍复杂                     |
+| 使用场景               | 通用的类路径扫描，适合非 Spring 环境或自定义逻辑 | Spring Bean 注册和组件扫描                         |
+
+所以这里选取**能够直接****扫描接口****上的注解**的**Reflection**库。
+
+####### **Reflection**库使用方式
+
+> [Reflections库指南](https://www.baeldung-cn.com/reflections-library)
+
+1）通过Maven导入Reflection库到模块`wb-rpc-spring-boot-starter`中：
+
+```XML
+<!-- 为了编写自定义的注解WbRpcClient -->
+<dependency>
+    <groupId>org.reflections</groupId>
+    <artifactId>reflections</artifactId>
+    <version>0.9.11</version>
+</dependency>
+```
+
+2）在模块`example-springboot-consumer`通过编写测试类`com.wb.examplespringbootconsumer.ScanAnnotationTest`成功验证了该工具的可行性。
+
+新增接口`ExampleService`：
+
+```Java
+package com.wb.examplespringbootconsumer;
+
+import com.wb.wbrpc.springboot.starter.annotation.EnableRpc;
+
+@EnableRpc
+public interface ExampleService {
+}
+```
+
+新增单元测试：
+
+```Java
+package com.wb.examplespringbootconsumer;
+
+import com.wb.wbrpc.springboot.starter.annotation.EnableRpc;
+import org.junit.jupiter.api.Test;
+import org.reflections.Reflections;
+
+import java.util.Set;
+
+public class ScanAnnotationTest {
+    /**
+     * 查找包下的被注解@EnableRpc修饰的接口/类
+     */
+    @Test
+    void testScanAnnotation(){
+        Reflections reflections = new Reflections("com.wb.examplespringbootconsumer");
+
+        Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(EnableRpc.class);
+        for (Class<?> clazz : annotated) {
+            EnableRpc ann = clazz.getAnnotation(EnableRpc.class);
+            System.out.println(clazz.getName() + " : " + ann.getClass());
+        }
+    }
+}
+```
+
+结果如下，符合预期：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=OTBkYmU2NGM0M2E4ZDc4MmRlOGIwZDRlZGQ3YTcyNjJfbUh4NHhPVjMxNVFBSGlrOXlBRFJQR3ZjQ0MzVjZtc1VfVG9rZW46RWhya2J4VW1qb2ozMGR4WUc3VWNEZm01bnJiXzE3NTQ5OTc4MTI6MTc1NTAwMTQxMl9WNA)
+
+##### 开发实现
+
+1. 设置自定义注解`@WbRpcClient`:
+
+```Java
+package com.wb.wbrpc.springboot.starter.annotation;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * 客户端注解（标注在类上），服务提供者使用此注解来决定需要暴露接口的类
+ */
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface WbRpcClient {
+    /**
+     * 给服务提供者的本地注册中心的key
+     * @return
+     */
+    String key() default "";
+}
+```
+
+1）修改`UserServiceImpl`类并新增接口`UserService`，让该类实现该接口，这符合正常的逻辑。
+
+如图所示：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=YWQ1OTIzZTJkNjdlNGE1MzllNjc1NDQ1ZWU4ZjM4ZGFfWWc5UXNMVTI1WmV2QTNUQXkzR3B5ZUlvUnMzU0k2QXhfVG9rZW46WlY1MWJ6SjhSb3dwMEx4TUJWUmNyV0Q5blhnXzE3NTQ5OTc4MTI6MTc1NTAwMTQxMl9WNA)
+
+在原有接口`UserService`修改import的POJO的包名，代码如下：
+
+```Java
+package com.wb.examplespringbootprovider.service;
+
+import com.wb.example.common.model.User;
+
+/**
+ * 用户服务
+ */
+public interface UserService {
+
+    /**
+     * 获取用户
+     *
+     * @param user
+     * @return
+     */
+    User getUser(User user);
+
+    default int getNumber(){
+        return 1;
+    }
+}
+```
+
+在实现类`UserServiceImpl`修改import的POJO的包名，代码如下：
+
+```Java
+package com.wb.examplespringbootprovider.service.impl;
+
+import com.wb.example.common.model.User;
+import com.wb.examplespringbootprovider.service.UserService;
+import com.wb.wbrpc.springboot.starter.annotation.RpcService;
+
+/**
+ * 用户服务实现类
+ */
+@RpcService
+public class UserServiceImpl implements UserService {
+
+    @Override
+    public User getUser(User user) {
+        System.out.println("用户名；"+ user.getName());
+        return user;
+    }
+}
+```
+
+2）将公共接口模块的包名改为与服务提供者模块包名加上一层client文件夹后相同，如图所示：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=ZDE0ODMyNjVlNjk2MTZkMGJkNjUwZWRkZGE1OWVhMTdfUGNMR2NVUzhDZ2ZyQVRQZDlRS0hTbFVvaDY2ZngzWG5fVG9rZW46SGVpTWJtcjh5b3FsNnF4MXlJNGN6VTVkbjViXzE3NTQ5OTc4MTI6MTc1NTAwMTQxMl9WNA)
+
+这里服务提供者模块包名为com.wb.examplespringbootprovider.service，所以需要加上一层client。
+
+注意在这一步后，因为我变更了`UserService`接口的位置，所以之前的`example-consumer`和`example-common`就无法使用了！
+
+3）修改`RpcProviderBootstrap`，主要是新增`getLocalRegistryKeyFromAnnotation`方法，完整代码如下：
+
+```Java
+package com.wb.wbrpc.springboot.starter.bootstrap;
+
+import com.wb.wbrpc.RpcApplication;
+import com.wb.wbrpc.config.RegistryConfig;
+import com.wb.wbrpc.config.RpcConfig;
+import com.wb.wbrpc.model.ServiceMetaInfo;
+import com.wb.wbrpc.registry.LocalRegistry;
+import com.wb.wbrpc.registry.Registry;
+import com.wb.wbrpc.registry.RegistryFactory;
+import com.wb.wbrpc.springboot.starter.annotation.RpcService;
+import com.wb.wbrpc.springboot.starter.annotation.WbRpcClient;
+import lombok.extern.slf4j.Slf4j;
+import org.reflections.Reflections;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+
+import java.util.Set;
+
+/**
+ * Rpc 服务提供者启动
+ */
+@Slf4j
+public class RpcProviderBootstrap implements BeanPostProcessor {
+
+    /**
+     * 从注解 @WbRpcClient中获取本地注册所需key
+     */
+    public String getLocalRegistryKeyFromAnnotation(String basePackage, String className) throws ClassNotFoundException {
+
+        // 在basePackage路径下进行搜索
+        Reflections reflections = new Reflections(basePackage);
+
+        Set<Class<?>> annotated = reflections.getTypesAnnotatedWith(WbRpcClient.class);
+        // 获取本地注册所需key
+        String localRegistryKey =null;
+        for (Class<?> clazz : annotated) {
+            WbRpcClient annotation = clazz.getAnnotation(WbRpcClient.class);
+            // 获取到指定实现类对应的接口名字
+            if(annotation.key().equals(className)){
+                localRegistryKey = clazz.getName();
+                break;
+            }
+        }
+        return localRegistryKey;
+    }
+    /**
+     * 每个 Bean 初始化后执行，注册服务
+     *
+     * @param bean
+     * @param beanName
+     * @return
+     * @throws BeansException
+     */
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        Class<?> beanClass = bean.getClass();
+        // 对每个Bean对象都查询是否被该注解修饰，
+        // 如果是则获取该注解进而获取具体的成员值（即为注解赋的值，否则采用默认值）。
+        // 不是则返回null
+        RpcService rpcService = beanClass.getAnnotation(RpcService.class);
+        if (rpcService != null) {
+            // 需要注册服务
+            // 1. 获取服务基本信息
+            Class<?> interfaceClass = rpcService.interfaceClass();
+            // 1.1 默认值处理（默认值是Bean对应的实现类实现的第一个接口的class对象）
+            if (interfaceClass == void.class) {
+                interfaceClass = beanClass.getInterfaces()[0];
+            }
+            // 1.2 根据服务接口和服务实现类类名获取服务名
+            String serviceName = null;
+            try {
+                // 包名需要后面都加上client
+                String basePackage = interfaceClass.getPackageName() + ".client";
+                // 所以是需要同包名(即同package)，然后才能根据实现类的类名去作匹配
+                serviceName = getLocalRegistryKeyFromAnnotation(basePackage, beanClass.getSimpleName());
+            } catch (ClassNotFoundException e) {
+                log.error("未扫描到该包名下的接口或者实现类类名匹配失败！");
+                throw new RuntimeException(e);
+            }
+            String serviceVersion = rpcService.serviceVersion();
+            // 2. 注册服务
+            // 本地注册
+            LocalRegistry.register(serviceName, beanClass);
+
+            // 全局配置
+            final RpcConfig rpcConfig = RpcApplication.getRpcConfig();
+            // 注册服务到注册中心
+            RegistryConfig registryConfig = rpcConfig.getRegistryConfig();
+            Registry registry = RegistryFactory.getInstance(registryConfig.getRegistry());
+            ServiceMetaInfo serviceMetaInfo = new ServiceMetaInfo();
+            serviceMetaInfo.setServiceName(serviceName);
+            serviceMetaInfo.setServiceVersion(serviceVersion);
+            serviceMetaInfo.setServiceHost(rpcConfig.getServerHost());
+            serviceMetaInfo.setServicePort(rpcConfig.getServerPort());
+            try {
+                registry.register(serviceMetaInfo);
+            } catch (Exception e) {
+                throw new RuntimeException(serviceName + " 服务注册失败", e);
+            }
+        }
+
+        return BeanPostProcessor.super.postProcessAfterInitialization(bean, beanName);
+    }
+}
+```
+
+4）修改模块`example-common`中的`UserService`接口，代码如下：
+
+```Java
+package com.wb.examplespringbootprovider.service;
+
+import com.wb.example.common.model.User;
+import com.wb.wbrpc.springboot.starter.annotation.WbRpcClient;
+
+/**
+ * 用户服务
+ */
+@WbRpcClient(key = "UserServiceImpl")
+public interface UserService {
+
+    /**
+     * 获取用户
+     *
+     * @param user
+     * @return
+     */
+    User getUser(User user);
+
+    default int getNumber(){
+        return 1;
+    }
+}
+```
+
+可以看到，这里使用了我的自定义注解`@WbRpcClient`，并提供了key值表示对应的实现类名称，一般来说，在规范的开发下，这个相当于接口类名+“Impl”。
+
+##### 测试
+
+先启动服务提供者，再启动服务消费者的单元测试：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=MjRhYTQxYjM2MjJkNzhmZDc4ODFlNDUwMWY5YmRhMTRfVEZvdkJpR2x0VVFOeUw1M0x0ekdZdTB6ODlMN29DTjFfVG9rZW46WFpvdmI3YXA1bzNkaHh4b21qM2NGZFVsbjZmXzE3NTQ5OTc4MTI6MTc1NTAwMTQxMl9WNA)
+
+可以看到已经成功了！
+
+##### 总结
+
+以后服务提供者暴露新的功能只需以下几步：
+
+1. 移动已有的POJO到此公共接口模块。
+2. 更改原有接口及其实现类上的import的POJO的包名。（**前2步**在提前做好管理，即把用到的POJO移到一个公共模块上时是**可以去掉的**）
+3. 模仿原有接口在一个公共接口模块上新增新的公共接口，注意包名需要加上一层client。
+4. 用注解`@RpcService`标注原有接口对应的实现类。
+5. 用注解`@WbRpcClient`标注新增的公共接口，注解上的key为服务提供者实现类的类名。
 

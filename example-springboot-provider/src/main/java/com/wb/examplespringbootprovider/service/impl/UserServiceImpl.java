@@ -1,7 +1,7 @@
-package com.wb.examplespringbootprovider;
+package com.wb.examplespringbootprovider.service.impl;
 
 import com.wb.example.common.model.User;
-import com.wb.example.common.service.UserService;
+import com.wb.examplespringbootprovider.service.UserService;
 import com.wb.wbrpc.springboot.starter.annotation.RpcService;
 
 /**

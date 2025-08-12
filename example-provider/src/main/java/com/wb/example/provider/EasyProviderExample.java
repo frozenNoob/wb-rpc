@@ -1,10 +1,9 @@
 package com.wb.example.provider;
 
-import com.wb.wbrpc.RpcApplication;
 import com.wb.wbrpc.registry.LocalRegistry;
 import com.wb.wbrpc.server.HttpServer;
 import com.wb.wbrpc.server.VertxHttpServer;
-import com.wb.example.common.service.UserService;
+import com.wb.examplespringbootprovider.service.client.UserService;
 import com.wb.example.provider.service.impl.UserServiceImpl;
 
 /**

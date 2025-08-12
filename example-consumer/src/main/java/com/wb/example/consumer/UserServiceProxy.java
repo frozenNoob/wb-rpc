@@ -3,7 +3,7 @@ package com.wb.example.consumer;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import com.wb.example.common.model.User;
-import com.wb.example.common.service.UserService;
+import com.wb.examplespringbootprovider.service.client.UserService;
 import com.wb.wbrpc.model.RpcRequest;
 import com.wb.wbrpc.model.RpcResponse;
 import com.wb.wbrpc.serializer.JdkSerializer;

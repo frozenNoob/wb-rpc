@@ -1,12 +1,10 @@
 package com.wb.wbrpc.server;
 
 
-import com.wb.example.common.service.UserService;
 import com.wb.wbrpc.RpcApplication;
 import com.wb.wbrpc.model.RpcRequest;
 import com.wb.wbrpc.model.RpcResponse;
 import com.wb.wbrpc.registry.LocalRegistry;
-import com.wb.wbrpc.serializer.JdkSerializer;
 import com.wb.wbrpc.serializer.Serializer;
 import com.wb.wbrpc.serializer.SerializerFactory;
 import io.vertx.core.Handler;

@@ -1,7 +1,7 @@
 package com.wb.example.consumer;
 
 import com.wb.example.common.model.User;
-import com.wb.example.common.service.UserService;
+import com.wb.examplespringbootprovider.service.client.UserService;
 import com.wb.wbrpc.bootstrap.ConsumerBootstrap;
 import com.wb.wbrpc.proxy.ServiceProxyFactory;
 

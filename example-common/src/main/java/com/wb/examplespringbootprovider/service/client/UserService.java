@@ -1,10 +1,12 @@
-package com.wb.example.common.service;
+package com.wb.examplespringbootprovider.service.client;
 
 import com.wb.example.common.model.User;
+import com.wb.wbrpc.springboot.starter.annotation.WbRpcClient;
 
 /**
  * 用户服务
  */
+@WbRpcClient(key = "UserServiceImpl")
 public interface UserService {
 
     /**

@@ -14,4 +14,13 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
+  <dependencies>
+    <!-- 引入注解WbRpcClient -->
+    <dependency>
+      <groupId>com.wb</groupId>
+      <artifactId>wb-rpc-spring-boot-starter</artifactId>
+      <version>0.0.1-SNAPSHOT</version>
+    </dependency>
+  </dependencies>
+
 </project>

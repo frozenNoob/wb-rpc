@@ -12,11 +12,6 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>com.wb</groupId>
-            <artifactId>example-common</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/io.vertx/vertx-core -->
         <dependency>
             <groupId>io.vertx</groupId>
