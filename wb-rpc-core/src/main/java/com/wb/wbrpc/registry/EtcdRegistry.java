@@ -70,8 +70,10 @@ public class EtcdRegistry implements Registry {
         ByteSequence key = ByteSequence.from(registerKey, StandardCharsets.UTF_8);
         ByteSequence value = ByteSequence.from(JSONUtil.toJsonStr(serviceMetaInfo), StandardCharsets.UTF_8);
 
-        // 将键值对与租约关联起来，并设置过期时间
+        // 将键值对与租约关联起来，由此设置过期时间。
         PutOption putOption = PutOption.builder().withLeaseId(leaseId).build();
+
+        // 注册到 etcd中
         kvClient.put(key, value, putOption).get();
 
         // 添加节点信息到本地缓存
@@ -129,27 +131,6 @@ public class EtcdRegistry implements Registry {
     }
 
     @Override
-    public void destroy() {
-        System.out.println("当前节点下线");
-        // 下线节点
-        // 遍历本节点所有的 key
-        for (String key : localRegisterNodeKeySet) {
-            try {
-                kvClient.delete(ByteSequence.from(key, StandardCharsets.UTF_8)).get();
-            } catch (Exception e) {
-                throw new RuntimeException(key + "节点下线失败");
-            }
-        }
-        // 释放资源
-        if (kvClient != null) {
-            kvClient.close();
-        }
-        if (client != null) {
-            client.close();
-        }
-    }
-
-    @Override
     public void heartBeat() {
         // 10 秒续签一次
         CronUtil.schedule("*/10 * * * * *", new Task() {
@@ -183,13 +164,14 @@ public class EtcdRegistry implements Registry {
     }
 
     /**
-     * 监听（消费端）
+     * 监听（在消费端监听服务端）
      *
      * @param registerKey 等于 ETCD_ROOT_PATH + serviceNodeKey
      * @param serviceKey
      */
     @Override
     public void watch(String registerKey, String serviceKey) {
+        // 初始化监听实例
         Watch watchClient = client.getWatchClient();
         // 之前未被监听，开启监听
         boolean newWatch = watchingKeySet.add(registerKey);
@@ -208,6 +190,28 @@ public class EtcdRegistry implements Registry {
                     }
                 }
             });
+        }
+    }
+
+    @Override
+    public void destroy() {
+        System.out.println("当前节点下线");
+        // 下线节点
+        // 遍历本节点所有的 key
+        for (String key : localRegisterNodeKeySet) {
+            try {
+                kvClient.delete(ByteSequence.from(key, StandardCharsets.UTF_8)).get();
+            } catch (Exception e) {
+                throw new RuntimeException(key + "节点下线失败");
+            }
+        }
+        // 释放资源
+        if (client != null) {
+            client.close();
+        }
+        // 这一步其实不用，因为client.close()就包含了这一步了。
+        if (kvClient != null) {
+            kvClient.close();
         }
     }
 }

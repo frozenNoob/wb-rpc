@@ -34,6 +34,11 @@ public class ZooKeeperRegistry implements Registry {
     private ServiceDiscovery<ServiceMetaInfo> serviceDiscovery;
 
     /**
+     * 根节点
+     */
+    private static final String ZK_ROOT_PATH = "/rpc/zk";
+
+    /**
      * 本机注册的节点 key 集合（用于维护续期）
      */
     private final Set<String> localRegisterNodeKeySet = new HashSet<>();
@@ -48,10 +53,6 @@ public class ZooKeeperRegistry implements Registry {
      */
     private final Set<String> watchingKeySet = new ConcurrentHashSet<>();
 
-    /**
-     * 根节点
-     */
-    private static final String ZK_ROOT_PATH = "/rpc/zk";
 
 
     @Override
@@ -66,7 +67,7 @@ public class ZooKeeperRegistry implements Registry {
         // 构建 serviceDiscovery 实例
         serviceDiscovery = ServiceDiscoveryBuilder.builder(ServiceMetaInfo.class)
                 .client(client)
-                .basePath(ZK_ROOT_PATH)
+                .basePath(ZK_ROOT_PATH) // 所有key在被用于put和get操作前会自动加上该前缀，十分方便的一点
                 .serializer(new JsonInstanceSerializer<>(ServiceMetaInfo.class))
                 .build();
 
@@ -132,7 +133,7 @@ public class ZooKeeperRegistry implements Registry {
     }
 
     /**
-     * 监听（消费端）
+     * 监听（在消费端监听服务端）
      * @param registerKey 等于 ETCD_ROOT_PATH + serviceNodeKey
      * @param serviceKey
      */
@@ -175,10 +176,10 @@ public class ZooKeeperRegistry implements Registry {
         try {
             return ServiceInstance
                     .<ServiceMetaInfo>builder()
-                    .id(serviceAddress)
-                    .name(serviceMetaInfo.getServiceKey())
+                    .id(serviceAddress) // 比如localhost:80
+                    .name(serviceMetaInfo.getServiceKey()) // key
                     .address(serviceAddress)
-                    .payload(serviceMetaInfo)
+                    .payload(serviceMetaInfo) // value
                     .build();
         } catch (Exception e) {
             throw new RuntimeException(e);

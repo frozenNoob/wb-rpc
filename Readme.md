@@ -130,17 +130,15 @@ rpc.serializer=hessian
 
 ### 6.1 基本设计
 
-成功实现 3 个注册中心的优化点：
+成功实现 4 个注册中心的优化点：
 
-1. 心跳检测和续期机制
+1. 心跳检测和续期机制。
 
-2. 服务节点下线机制
+2. 服务节点下线机制。
 
-3. 消费端服务缓存
+3. 消费端服务缓存。
 
-   
-
-4. 基于 ZooKeeper 的注册中心实现（出现一些错误，待解决）
+4. 基于 ZooKeeper 的注册中心实现。
 
 ### 6.2 扩展设计
 
@@ -481,8 +479,6 @@ public class UserServiceImpl implements UserService {
 ![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=ZDE0ODMyNjVlNjk2MTZkMGJkNjUwZWRkZGE1OWVhMTdfUGNMR2NVUzhDZ2ZyQVRQZDlRS0hTbFVvaDY2ZngzWG5fVG9rZW46SGVpTWJtcjh5b3FsNnF4MXlJNGN6VTVkbjViXzE3NTQ5OTc4MTI6MTc1NTAwMTQxMl9WNA)
 
 这里服务提供者模块包名为com.wb.examplespringbootprovider.service，所以需要加上一层client。
-
-注意在这一步后，因为我变更了`UserService`接口的位置，所以之前的`example-consumer`和`example-common`就无法使用了！
 
 3）修改`RpcProviderBootstrap`，主要是新增`getLocalRegistryKeyFromAnnotation`方法，完整代码如下：
 
