@@ -2,9 +2,6 @@ package com.wb.wbrpc.serializer;
 
 import com.wb.wbrpc.spi.SpiLoader;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * 序列化器工厂（用于获取序列化器对象）
  */
@@ -13,9 +10,7 @@ public class SerializerFactory {
     /**
      * 序列化映射（用于实现饿汉式单例模式）
      */
-    static {
-        SpiLoader.load(Serializer.class);
-    }
+    private volatile static boolean finishLoad;
 
     /**
      * 默认序列化器
@@ -29,6 +24,15 @@ public class SerializerFactory {
      * @return
      */
     public static Serializer getInstance(String key) {
+        if(!finishLoad){
+            synchronized (SerializerFactory.class){
+                if(!finishLoad){
+                    // 懒加载工厂所需信息
+                    SpiLoader.load(Serializer.class);
+                    finishLoad = true;
+                }
+            }
+        }
         return SpiLoader.getInstance(Serializer.class, key);
     }
 

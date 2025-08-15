@@ -99,7 +99,106 @@ rpc.serializer=hessian
 
 ### 4.2 扩展设计
 
+#### 1）使用双检索单例模式懒加载序列化器工厂所需的信息。
 
+##### 需求分析
+
+懒加载工厂所需信息时，需要使用`SpiLoader`调用`load`方法，这会变更`SpiLoader`类的`loaderMap`指向的实例中的数据，其中`loaderMap`指向的实例存储的key为一个接口类型名，value为包含所有对应实现类信息的Map。
+
+对序列化器工厂`SerializerFactory`来说，使用`SpiLoader`进行`load`时，只需`load`一次就行了，因为以同一个接口类型`Serializer`作为key，其他实现类（序列化器）作为value的这种方式赋值一次就行。当然，这种做法在配置热更新方面存在缺陷（需要多次`load`），这里就不做讨论了。
+
+总的来说，我的目的是**只懒加载一次序列化器工厂所需信息**，即只在刚开始使用时执行一次`SpiLoader.`*`load`*`(Serializer.class);`。
+
+##### 设计方案
+
+有以下2种方案：
+
+1. 使用static代码块来加载。static 代码块会在类首次主动使用时执行（比如调用该类的静态方法或创建该类的实例），仅执行一次。
+2. 基于双检索单例模式定义一个boolean类型的成员变量来实现懒加载，在首次使用该类的方法时执行，仅执行一次。
+
+因为方案1会出现当使用反射加载类时，该类的static代码块会主动执行，这可能会导致static代码块被提前执行，出现一些难以预料的后果。所以最终采用方案2。
+
+##### 开发实现
+
+```Java
+package com.wb.wbrpc.serializer;
+
+import com.wb.wbrpc.spi.SpiLoader;
+
+/**
+ * 序列化器工厂（用于获取序列化器对象）
+ */
+public class SerializerFactory {
+
+    /**
+     * 序列化映射（用于实现饿汉式单例模式）
+     */
+    private volatile static boolean finishLoad;
+
+    /**
+     * 默认序列化器
+     */
+    private static final Serializer DEFAULT_SERIALIZER = new JdkSerializer();
+
+    /**
+     * 获取实例
+     *
+     * @param key
+     * @return
+     */
+    public static Serializer getInstance(String key) {
+        if(!finishLoad){
+            synchronized (SerializerFactory.class){
+                if(!finishLoad){
+                     // 懒加载工厂所需信息
+                    SpiLoader.load(Serializer.class);
+                    finishLoad = true;
+                }
+            }
+        }
+        return SpiLoader.getInstance(Serializer.class, key);
+    }
+
+}
+```
+
+##### 测试
+
+加入一行输出信息：
+
+```Java
+if(!finishLoad){
+    // 懒加载工厂所需信息
+    SpiLoader.load(Serializer.class);
+    finishLoad = true;
+    System.out.println("加载成功");
+}
+```
+
+编写测试类。
+
+```Java
+public class SerializerFactoryTest {
+
+    @Test
+    public void getInstance() throws InterruptedException {
+        Thread thread1 = new Thread(()->{
+            SerializerFactory.getInstance("json");
+        });
+        Thread thread2 = new Thread(()->{
+            SerializerFactory.getInstance("json");
+        });
+
+        thread1.start();
+        thread2.start();
+
+        thread1.join();
+        thread2.join();
+    }
+}
+```
+
+执行后可以看到实际上只输出了一次“加载成功”。
 
 ## 5. 注册中心基本实现
 
