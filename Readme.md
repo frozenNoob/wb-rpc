@@ -206,18 +206,18 @@ public class SerializerFactoryTest {
 
 已经可以先让服务提供者将服务地址等信息注册到注册中心，然后消费者通过服务发现从注册中心获取到这些信息。
 
-通过实现这个过程，可以发现，实际上这种代理模式，本质上通过**同一个接口名（都来源于公共模块）**来传递实例对象：消费者将接口名放到请求体中，而**提供者在服务器启动前将<接口名: 实例>放到本地注册中心中**，然后在服务启动后通过请求处理器来获取这些实例。也就是说，推测服务提供者是必须用到公共模块的接口的，只是这一步代码我在用其他框架比如 Feign 时，都是自动处理好了，所以显得我并没有手动在一个java文件中导入并编写公共模块的接口。
+通过实现这个过程，可以发现，实际上这种代理模式，本质上通过**同一个接口名（都来源于公共模块）**来传递实例对象：消费者将接口名放到请求体中，而**提供者在服务器启动前将<接口名: 实例>放到本地注册中心中**，然后在服务启动后通过请求处理器来获取这些实例。也就是说，服务提供者是必须用到公共模块的接口的，只是这一步代码我在用其他框架比如 Feign 时，都是自动处理好了，所以显得我并没有手动在一个java文件中导入并编写公共模块的接口。
 
-当然，这并不违反代理模式的设计理念，解释如下：
+当然，这并不违反代理模式的设计理念，在新增公共接口类和移动POJO类后（这通常发生在需要暴露接口给消费者调用时），
 
 在已有接口类以及对应的业务实现类中（比如service层的java类）需要更改：
 
-- java实现类中import的POJO对象。
+- import的POJO对象。
 
 而在使用了本地注册中心（比如`LocalRegistry`）的用于专门启动某些配置的类中（比如`PrividerExample`)，需要更改：
 
-- java实现类中import的POJO对象。
-- java实现类中import的接口全类名。
+- import的POJO对象。
+- import的接口类。
 
 以上都是**不需要变更已有的接口类和实现类中的内容**，只需要变更导入的方式，这就是代理模式的好处。
 
@@ -362,7 +362,197 @@ if (hasServiceListChanged(serviceMetaInfoList)) {
 
 ### 10.2 扩展设计
 
+#### 1）实现 Fail-Back 容错机制。
 
+##### 需求分析
+
+系统的某个功能出现调用失败或错误⁠时，通过其他的方法，恢复该功能⁠的正常。可以理解为降级，比如重试、调用其他服务等。
+
+##### 设计方案
+
+> 1. [服务降级（本地伪装）](https://cn.dubbo.apache.org/zh-cn/overview/mannual/java-sdk/tasks/framework/more/local-mock/)
+> 2. [3. 接口Mock](https://fcneheqzlq8n.feishu.cn/wiki/IYKfwlfYIiEEhlk5zzqccGnDn7g)
+
+参考 Dubbo 的 Mock ⁠能力，让消费端在重试后的容错策略为Mock且Mock的返回值是`empty`，即返回空的对象而非`null`。当然Dubbo做的更为细致，可以让消费端指定特定方法及其默认返回值。这里不做实现。
+
+##### 开发实现
+
+1）修改`ServiceProxy`类中的代码，新增以下代码，传入参数：
+
+```Java
+Map<String, Object> contextAboutTolerant = null;
+// 1.1 Fail-Back策略
+if(TolerantStrategyKeys.FAIL_BACK.equals(RpcApplication.getRpcConfig().getTolerantStrategy())){
+    contextAboutTolerant = new HashMap<>(){{
+        put("method", method);
+        put("args", args);
+    }};
+}
+
+rpcResponse = tolerantStrategy.doTolerant(contextAboutTolerant, e);
+```
+
+2）这里复用已有的Mock代理对象，关键代码如下：
+
+```Java
+package com.wb.wbrpc.fault.tolerant;
+
+import com.wb.wbrpc.model.RpcResponse;
+import com.wb.wbrpc.proxy.MockServiceProxy;
+import lombok.extern.slf4j.Slf4j;
+
+import java.lang.reflect.Method;
+import java.util.Map;
+
+/**
+ * 降级到其他服务 - 容错策略
+ */
+@Slf4j
+public class FailBackTolerantStrategy implements TolerantStrategy {
+
+    @Override
+    public RpcResponse doTolerant(Map<String, Object> context, Exception e) {
+        RpcResponse rpcResponse = new RpcResponse();
+        try {
+            Method method = (Method) context.get("method");
+            Object[] args = (Object[]) context.get("args");
+            MockServiceProxy mockServiceProxy = new MockServiceProxy();
+            // 执行该方法，这里传入的第一个参数proxy是根本用不到的，因为我是手动执行invoke方法，而不是通过正常的代理执行。
+            // 在正常的代理执行时，第一个参数proxy是默认赋值为生成的代理对象，可以通过该对象访问接口名等等（不过一般用不上？）。
+            Object result = mockServiceProxy.invoke(mockServiceProxy, method, args);
+            // 设置回响应的结果中
+            rpcResponse.setData(result);
+            rpcResponse.setMessage("返回Mock作为降级策略");
+            rpcResponse.setException(e);
+        } catch (Throwable ex) {
+            log.error("执行FailBack容错策略失败");
+            throw new RuntimeException(ex);
+        }
+        return rpcResponse;
+    }
+}
+```
+
+##### 测试
+
+1）修改配置文件：
+
+```Java
+rpc.tolerantStrategy=failBack
+```
+
+2）先启动服务提供者，再Debug启动消费者，然后在*`doRequest`*方法执行前关闭服务提供者，如下图：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=ODIyZmU1YjVlZjUwZTQxNWRkYzI5NTk2YjhhMTVlZTVfVVNiZ281OVpPOVpnSFJYTWVuUG5mN1FERXpBb1oydnZfVG9rZW46Q2pjTWJMdDFobzNibjd4b0hDTGNURE85bktmXzE3NTUyNjExNTc6MTc1NTI2NDc1N19WNA)接下来会重试后容错，然后就能看到采用了FailBack容错机制下采用的降级策略是Mock：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=ZWFkMGZhOThkYTE1ZmQ3OGMyNDNkMDAwZGRhZDg5NjlfallxekhtaFVLVkJPMUhtaDZnVnQ3UjB0MDdLdDA4MTZfVG9rZW46QnR6c2JUdVVrb2FFYkl4b2ZXN2NqNExSbkNkXzE3NTUyNjExNTc6MTc1NTI2NDc1N19WNA)
+
+#### 2）实现 Fail-Over 容错机制。
+
+##### 需求分析
+
+需要实现的容错策略为故障转移：一次调用失败⁠后，切换一个其他节⁠点再次进行调用，也算是一种重试。
+
+##### 设计方案
+
+切换其他节点进行访问时，为保证不会随机选到已经访问过的节点，所以采用轮询的方式，进行重试，并且都选完一遍还没有找到可用的节点的话就抛出错误。
+
+##### 开发实现
+
+1）修改`ServiceProxy`类，新增以下代码：
+
+```Java
+// 1.2 Fail-Over策略
+if (TolerantStrategyKeys.FAIL_OVER.equals(RpcApplication.getRpcConfig().getTolerantStrategy())) {
+    contextAboutTolerant = new HashMap<>() {{
+        put("visited", selectedServiceMetaInfo);// 已经访问过的节点
+        put("nodeList", serviceMetaInfoList); // 所有的节点
+        put("rpcRequest", rpcRequest); //
+    }};
+}
+// 2. 使用容错机制
+rpcResponse = tolerantStrategy.doTolerant(contextAboutTolerant, e);
+```
+
+2）完善之前的`FailOverTolerantStrategy`类：
+
+```Java
+/**
+ * 转移到其他服务节点 - 容错策略
+ */
+@Slf4j
+public class FailOverTolerantStrategy implements TolerantStrategy {
+
+    @Override
+    public RpcResponse doTolerant(Map<String, Object> context, Exception e) {
+        // 1. 获取传入的参数
+        ServiceMetaInfo visitedServiceMetaInfo = (ServiceMetaInfo) context.get("visited");
+        List<ServiceMetaInfo> serviceMetaInfoList = (List<ServiceMetaInfo>) context.get("nodeList");
+        RpcRequest rpcRequest = (RpcRequest) context.get("rpcRequest");
+
+        RpcResponse rpcResponse;
+
+        // 2. 固定时间间隔重试（访问参数可变）
+        // AtomicInteger attemptCount = new AtomicInteger(serviceMetaInfoList.size());// 此处不需要原子类
+        // 从内部类更改外部参数需要如此使用：
+        final Integer[] attemptCount = {-1};
+        // 2.1 定义Callable，动态获取参数
+        Callable<RpcResponse> callable = () -> {
+            int attempt = attemptCount[0]++ + 1;
+            ServiceMetaInfo curService = serviceMetaInfoList.get(attempt);
+            // 直接跳过之前已经访问过的崩溃节点
+            if (curService.getServiceNodeKey()
+                    .equals(visitedServiceMetaInfo.getServiceNodeKey())) {
+                return null;
+            }
+            // 返回响应
+            return VertxTcpClient.doRequest(rpcRequest, curService);
+        };
+
+        // 2.2 配置 Retryer
+        Retryer<RpcResponse> retryer = RetryerBuilder.<RpcResponse>newBuilder()
+                .retryIfExceptionOfType(Exception.class) // 遇到异常重试
+                .retryIfResult(Objects::isNull) // 结果为 null 重试
+                .withWaitStrategy(WaitStrategies.fixedWait(1, TimeUnit.SECONDS)) // 每次重试间隔 1 秒
+                .withStopStrategy(StopStrategies.stopAfterAttempt(serviceMetaInfoList.size())) // 最大重试次数
+                .withRetryListener(new RetryListener() {
+                    @Override
+                    public <V> void onRetry(Attempt<V> attempt) {
+                        log.info("重试次数 {}", attempt.getAttemptNumber());
+                    }
+                })
+                .build();
+        // 2.3 开始重试
+        try {
+            rpcResponse = retryer.call(callable);
+            rpcResponse.setException(e);
+            rpcResponse.setMessage("通过FailOver策略重试");
+        } catch (ExecutionException | RetryException ex) {
+            log.error("调用其他节点时出现错误");
+            throw new RuntimeException(ex);
+        }
+
+        return rpcResponse;
+    }
+}
+```
+
+##### 测试
+
+1）修改配置文件
+
+```Java
+rpc.tolerantStrategy=failOver
+rpc.loadBalancer=roundRobin
+```
+
+2）依次启动2个不同的服务提供者，从8090->8091（通过更改配置文件`application.properties`实现）。然后启动消费者，Debug到执行*`doRequest`**方法前，如下图：*
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=ODIyZmU1YjVlZjUwZTQxNWRkYzI5NTk2YjhhMTVlZTVfVVNiZ281OVpPOVpnSFJYTWVuUG5mN1FERXpBb1oydnZfVG9rZW46Q2pjTWJMdDFobzNibjd4b0hDTGNURE85bktmXzE3NTUyNjExNTc6MTc1NTI2NDc1N19WNA)
+
+然后关闭端口为8090的服务提供者，再继续Debug下去，因为通过轮询的方式进行了重试，所以可以看到测试结果正常，远程调用成功：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=MzZjMTc5MGI3NmEzMDUxOGE2MzQyYzZkZTBmZTA2MmRfYzhxeFBHVzhQVmFzM2R2RUxRUThGSGRUVWxpVVRQZlNfVG9rZW46QUxTYmJKWGZUb3NVMkR4NjZ1WmNWM0dZblliXzE3NTUyNjExNTc6MTc1NTI2NDc1N19WNA)
 
 ## 11. 启动机制和注解驱动
 

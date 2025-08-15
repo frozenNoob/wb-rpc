@@ -9,6 +9,7 @@ import com.wb.wbrpc.fault.retry.RetryStrategy;
 import com.wb.wbrpc.fault.retry.RetryStrategyFactory;
 import com.wb.wbrpc.fault.tolerant.TolerantStrategy;
 import com.wb.wbrpc.fault.tolerant.TolerantStrategyFactory;
+import com.wb.wbrpc.fault.tolerant.TolerantStrategyKeys;
 import com.wb.wbrpc.loadbalancer.LoadBalancer;
 import com.wb.wbrpc.loadbalancer.LoadBalancerFactory;
 import com.wb.wbrpc.loadbalancer.LoadBalancerForHash;
@@ -24,6 +25,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 服务代理（JDK 动态代理）
@@ -81,12 +83,37 @@ public class ServiceProxy implements InvocationHandler {
             );
 
         } catch (Exception e) {
-            log.error("\n调用代理时出现错误");
-            // 容错机制
+            log.error("\n重试失败，将采用容错机制");
+            // 1. 选取容错机制
             TolerantStrategy tolerantStrategy = TolerantStrategyFactory.getInstance(RpcApplication.getRpcConfig().getTolerantStrategy());
-            rpcResponse = tolerantStrategy.doTolerant(null, e);
+            Map<String, Object> contextAboutTolerant = null;
+            // 1.1 Fail-Back策略
+            if (TolerantStrategyKeys.FAIL_BACK.equals(RpcApplication.getRpcConfig().getTolerantStrategy())) {
+                contextAboutTolerant = new HashMap<>() {{
+                    put("method", method);
+                    put("args", args);
+                }};
+            }
+            // 1.2 Fail-Over策略
+            if (TolerantStrategyKeys.FAIL_OVER.equals(RpcApplication.getRpcConfig().getTolerantStrategy())) {
+                contextAboutTolerant = new HashMap<>() {{
+                    put("visited", selectedServiceMetaInfo);// 已经访问过的节点
+                    put("nodeList", serviceMetaInfoList); // 所有的节点
+                    put("rpcRequest", rpcRequest); //
+                }};
+            }
+            // 2. 使用容错机制
+            rpcResponse = tolerantStrategy.doTolerant(contextAboutTolerant, e);
+
+            if (rpcResponse == null) {
+                log.error("返回的响应为空");
+                throw new Exception(e);
+            }
         }
 
+        if (rpcResponse.getData() == null) {
+            log.warn("返回的响应的数据为空");
+        }
         return rpcResponse.getData();
     }
 }

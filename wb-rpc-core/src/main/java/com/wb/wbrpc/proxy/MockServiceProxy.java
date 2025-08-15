@@ -3,6 +3,7 @@ package com.wb.wbrpc.proxy;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
@@ -31,7 +32,7 @@ public class MockServiceProxy implements InvocationHandler {
      * @param type
      * @return
      */
-    private Object getDefaultObject(Class<?> type) {
+    private Object getDefaultObject(Class<?> type) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         // 基本类型
         if (type.isPrimitive()) {
             if (type == boolean.class) {
@@ -45,6 +46,6 @@ public class MockServiceProxy implements InvocationHandler {
             }
         }
         // 对象类型
-        return null;
+        return type.getConstructor().newInstance();
     }
 }
