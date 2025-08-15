@@ -1,5 +1,6 @@
 package com.wb.wbrpc.loadbalancer;
 
+import cn.hutool.core.util.HashUtil;
 import com.wb.wbrpc.model.ServiceMetaInfo;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,7 +29,7 @@ public class ConsistentHashLoadBalancer implements LoadBalancerForHash {
      * 记录上次使用的服务列表快照
      * 这里可以不用static的，因为在一个java进程中，SPI加载的是同一个实例（因为用到单例模式）。
      */
-    private List<ServiceMetaInfo> lastServiceMetaInfoList = Collections.emptyList();
+    private volatile List<ServiceMetaInfo> lastServiceMetaInfoList = Collections.emptyList();
 
     /**
      * 虚拟节点数
@@ -127,6 +128,7 @@ public class ConsistentHashLoadBalancer implements LoadBalancerForHash {
      * Hash 算法
      */
     private int getHash(Object key) {
-        return key.hashCode();
+        // 使用Hutool提供的改进的32位FNV算法1，在跨节点一致性上的表现比key.hashCode();表现要好得多
+        return HashUtil.fnvHash(key.toString());
     }
 }

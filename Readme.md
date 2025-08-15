@@ -4,7 +4,7 @@
 > 2. [手写 RPC 框架 - 个人笔记+梳理+总结+扩展点实现（作者：Jools_Wakoo）](https://www.codefather.cn/post/1886747157767315457#heading-126)
 ### 1.1 基本设计
 简易版RPC框架的流程图如下（按从绿到黑的箭头顺序查看）：
-![手写RPC框架流程图](docs/images/手写RPC框架图.drawio.png)
+![手写RPC框架流程图](docs/images/手写RPC框架的流程图.drawio.png)
 
 ### 1.2 扩展设计
 
@@ -303,7 +303,7 @@ public class SerializerFactoryTest {
 
 ##### 开发实现
 
-参考本次Fix提交中的`ConsistentHashLoadBalancer.java`文件。
+参考`ConsistentHashLoadBalancer.java`文件。
 通过定义并实现扩展接口`LoadBalancerForHash`的方式在不破坏其他实现类的情况下进行功能的扩展，这样才做符合单一职责原则。
 
 ##### 测试
@@ -329,6 +329,40 @@ if (hasServiceListChanged(serviceMetaInfoList)) {
 如果要**完全解决这个问题**的话，可以不采用单例模式加载类`ConsistentHashLoadBalancer`
 或者`setIfChanged`方法返回一个完整的深拷贝的哈希环并将其作为形参传入`select`方法中,但是这样消耗的内存会很多，
 所以综合考量下，使用现在这种方法是最好的。
+
+#### 2）修改用于计算hash的算法为Hutool工具包的做法
+
+##### Hutool做法
+
+###### 简介
+
+>  [算法详解](http://blog.csdn.net/sparkliang/article/details/5279393)
+
+Hutool默认使用的Hash算法为FNV1hash算法，具体看`org.dromara.hutool.core.codec.hash.ConsistentHash`类，如图：
+
+![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=NjExNWJhNDZjZmNkOThlZDBjMjhkOGNlOWUwMzU5NDlfdURYU3pSOUhPNGlOYmpCaE9kYzhRM29KN0N0b1lNa1hfVG9rZW46R1Zid2JNSkZvbzVnbVh4RXlvNGNKdzV4bm9kXzE3NTUyNzU2MDQ6MTc1NTI3OTIwNF9WNA)
+
+###### 何时该用 FNV 替代 hashCode？
+
+| 场景          | 推荐方案                 | 原因             |
+| ------------- | ------------------------ | ---------------- |
+| 分布式系统    | ✅ FNV/Murmur             | **跨节点一致性** |
+| 持久化哈希    | ✅ FNV                    | 重启后值不变     |
+| 安全敏感      | ❌ 两者都不用 → 用 SHA256 | 防碰撞攻击       |
+| Java 对象存储 | ✅ 默认 hashCode          | JVM 优化集成     |
+| 网络数据校验  | ✅ FNV-1a                 | 字节级精确       |
+
+##### 开发实现
+
+```java
+/**
+     * Hash 算法
+     */
+    private int getHash(Object key) {
+        // 使用Hutool提供的改进的32位FNV算法1，在跨节点一致性上的表现比key.hashCode();表现要好得多
+        return HashUtil.fnvHash(key.toString());
+    }
+```
 
 
 
