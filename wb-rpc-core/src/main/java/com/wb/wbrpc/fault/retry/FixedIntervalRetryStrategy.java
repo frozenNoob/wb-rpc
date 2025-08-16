@@ -22,6 +22,8 @@ public class FixedIntervalRetryStrategy implements RetryStrategy {
      * @throws ExecutionException
      * @throws RetryException
      */
+    // 添加抑制警告注解
+    @SuppressWarnings("UnstableApiUsage")
     public RpcResponse doRetry(Callable<RpcResponse> callable) throws ExecutionException, RetryException {
         Retryer<RpcResponse> retryer = RetryerBuilder.<RpcResponse>newBuilder()
                 .retryIfExceptionOfType(Exception.class)

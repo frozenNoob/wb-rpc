@@ -47,6 +47,8 @@ public class FailOverTolerantStrategy implements TolerantStrategy {
         };
 
         // 2.2 配置 Retryer
+        // 添加抑制警告注解
+        @SuppressWarnings("UnstableApiUsage")
         Retryer<RpcResponse> retryer = RetryerBuilder.<RpcResponse>newBuilder()
                 .retryIfExceptionOfType(Exception.class) // 遇到异常重试
                 .retryIfResult(Objects::isNull) // 结果为 null 重试
