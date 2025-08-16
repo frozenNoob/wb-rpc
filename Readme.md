@@ -200,6 +200,10 @@ public class SerializerFactoryTest {
 
 执行后可以看到实际上只输出了一次“加载成功”。
 
+### 4.3 修复Bug
+
+1. [Fix: 修复不同custom文件夹下的配置优先级问题 · frozenNoob/wb-rpc@68fd1ec](https://github.com/frozenNoob/wb-rpc/commit/68fd1ecfd2f0433110c9e886e0b269bbafcb2d09)
+
 ## 5. 注册中心基本实现
 
 ### 5.1 基本设计
@@ -364,7 +368,9 @@ Hutool默认使用的Hash算法为FNV1hash算法，具体看`org.dromara.hutool.
     }
 ```
 
+### 8.3 修复Bug
 
+1. [完成'8.负载均衡的扩展设计点2以及修复扩展点1的问题（涉及volatile关键字）' · frozenNoob/wb-rpc@951ec41](https://github.com/frozenNoob/wb-rpc/commit/951ec41ceb15260ef6ca24b9ab43a5085a0214b3)
 
 ## 9. 重试机制
 
@@ -380,6 +386,10 @@ Hutool默认使用的Hash算法为FNV1hash算法，具体看`org.dromara.hutool.
 ### 9.2 扩展设计
 
 
+
+### 9.3 修复Bug
+
+1. [package时遇到需要使用 注解@SuppressWarnings 的情况 · frozenNoob/wb-rpc@49c16ff](https://github.com/frozenNoob/wb-rpc/commit/49c16ffe2008337ded93c686b4f683cb83686556)
 
 ## 10. 容错机制
 
@@ -587,6 +597,10 @@ rpc.loadBalancer=roundRobin
 然后关闭端口为8090的服务提供者，再继续Debug下去，因为通过轮询的方式进行了重试，所以可以看到测试结果正常，远程调用成功：
 
 ![img](https://fcneheqzlq8n.feishu.cn/space/api/box/stream/download/asynccode/?code=MzZjMTc5MGI3NmEzMDUxOGE2MzQyYzZkZTBmZTA2MmRfYzhxeFBHVzhQVmFzM2R2RUxRUThGSGRUVWxpVVRQZlNfVG9rZW46QUxTYmJKWGZUb3NVMkR4NjZ1WmNWM0dZblliXzE3NTUyNjExNTc6MTc1NTI2NDc1N19WNA)
+
+### 10.3 修复Bug
+
+1. [package时遇到需要使用 注解@SuppressWarnings 的情况 · frozenNoob/wb-rpc@49c16ff](https://github.com/frozenNoob/wb-rpc/commit/49c16ffe2008337ded93c686b4f683cb83686556)
 
 ## 11. 启动机制和注解驱动
 
