@@ -107,9 +107,12 @@ public class SpiLoader {
         // 扫描路径，用户自定义的 SPI 优先级高于系统 SPI
         Map<String, Class<?>> keyClassMap = new HashMap<>();
         for (String scanDir : SCAN_DIRS) {
+            // 这里返回的列表的一个例子如下：['模块example-consumer的URL', '模块wb-rpc-core的URL']
+            // 所以接下来才需要倒着遍历resources
             List<URL> resources = ResourceUtil.getResources(scanDir + loadClass.getName());
             // 读取每个资源文件
-            for (URL resource : resources) {
+            for (int i=resources.size()-1;i>=0;i--) {
+                URL resource = resources.get(i);
                 try {
                     InputStreamReader inputStreamReader = new InputStreamReader(resource.openStream());
                     BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
